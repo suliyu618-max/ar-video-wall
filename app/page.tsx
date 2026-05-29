@@ -380,7 +380,7 @@ export default function Home() {
           AR Lens Video Recorder
         </h1>
 
-        <div className="w-full max-w-[420px] aspect-[9/16] rounded-[28px] border border-white/20 bg-black shadow-2xl overflow-hidden">
+        <div className="w-full max-w-[420px] md:max-w-[700px] aspect-[9/16] rounded-[28px] border border-white/20 bg-black shadow-2xl overflow-hidden">
           <div ref={snapContainerRef} className="w-full h-full" />
         </div>
 
