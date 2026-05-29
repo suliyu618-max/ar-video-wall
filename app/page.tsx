@@ -1,11 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  bootstrapCameraKit,
-  createMediaStreamSource,
-  Transform2D,
-} from "@snap/camera-kit";
 import { supabase } from "@/lib/supabase";
 
 type VideoItem = {
@@ -76,6 +71,14 @@ export default function Home() {
 
       if (!snapContainerRef.current) return;
 
+      const cameraKitModule = await import("@snap/camera-kit");
+
+      const {
+        bootstrapCameraKit,
+        createMediaStreamSource,
+        Transform2D,
+      } = cameraKitModule;
+
       const cameraKit = await bootstrapCameraKit({
         apiToken,
       });
@@ -85,7 +88,7 @@ export default function Home() {
       snapContainerRef.current.innerHTML = "";
       snapContainerRef.current.appendChild(session.output.live);
 
-      snapCanvasRef.current = session.output.live;
+      snapCanvasRef.current = session.output.live as HTMLCanvasElement;
 
       session.output.live.className =
         "w-full h-full object-cover rounded-[28px] bg-black";
@@ -117,6 +120,7 @@ export default function Home() {
       await session.play();
 
       setCameraReady(true);
+      setCameraError("");
     } catch (error) {
       console.error(error);
       setCameraError("Snap Lens 載入失敗，請檢查 Token、Lens ID、Group ID");
@@ -378,7 +382,7 @@ export default function Home() {
         </div>
 
         {!cameraReady && (
-          <p className="text-sm text-white/60">
+          <p className="text-sm text-white/60 text-center max-w-[320px]">
             {cameraError || "Lens 載入中，請稍候..."}
           </p>
         )}
