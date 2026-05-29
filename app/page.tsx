@@ -64,18 +64,8 @@ export default function Home() {
       const lensId = process.env.NEXT_PUBLIC_SNAP_LENS_ID;
       const lensGroupId = process.env.NEXT_PUBLIC_SNAP_LENS_GROUP_ID;
 
-      console.log("SNAP_API_TOKEN =", apiToken);
-      console.log("SNAP_LENS_ID =", lensId);
-      console.log("SNAP_LENS_GROUP_ID =", lensGroupId);
-
       if (!apiToken || !lensId || !lensGroupId) {
-        setCameraError(
-          `API TOKEN: ${apiToken ? "✅ OK" : "❌ MISSING"}
-
-LENS ID: ${lensId ? "✅ OK" : "❌ MISSING"}
-
-GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
-        );
+        setCameraError("缺少 Snap Camera Kit 環境變數");
         return;
       }
 
@@ -135,9 +125,7 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
       console.error("SNAP ERROR:", error);
 
       setCameraError(
-        error?.message ||
-          JSON.stringify(error) ||
-          "Snap Lens 載入失敗"
+        error?.message || JSON.stringify(error) || "Snap Lens 載入失敗"
       );
     }
   }
@@ -423,7 +411,7 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
             <video
               src={videoURL}
               controls
-              className="rounded-3xl border border-white/20"
+              className="w-full rounded-3xl border border-white/20"
             />
 
             <button
