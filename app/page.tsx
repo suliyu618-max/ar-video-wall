@@ -386,9 +386,13 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
 
         <div className="w-full max-w-[420px] aspect-[3/4] rounded-[28px] border border-white/20 bg-black shadow-2xl overflow-hidden flex items-center justify-center">
           <div
-            ref={snapContainerRef}
-            className="w-full h-full flex items-center justify-center"
-          />
+           className="w-full h-full flex items-center justify-center">
+  <div
+    ref={snapContainerRef}
+    className="w-[50%] h-[50%]"
+  />
+</div>
+          /
         </div>
 
         {!cameraReady && (
