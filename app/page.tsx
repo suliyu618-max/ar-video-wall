@@ -64,35 +64,44 @@ export default function Home() {
       const lensId = process.env.NEXT_PUBLIC_SNAP_LENS_ID;
       const lensGroupId = process.env.NEXT_PUBLIC_SNAP_LENS_GROUP_ID;
 
+      console.log("SNAP_API_TOKEN =", apiToken);
+      console.log("SNAP_LENS_ID =", lensId);
+      console.log("SNAP_LENS_GROUP_ID =", lensGroupId);
+
       if (!apiToken || !lensId || !lensGroupId) {
-        setCameraError("缺少 Snap Camera Kit 環境變數");
+        setCameraError(
+          `API TOKEN: ${apiToken ? "✅ OK" : "❌ MISSING"}
+
+LENS ID: ${lensId ? "✅ OK" : "❌ MISSING"}
+
+GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
+        );
         return;
       }
 
       if (!snapContainerRef.current) return;
 
+      const cameraKitModule = await import("@snap/camera-kit");
+
       const {
         bootstrapCameraKit,
         createMediaStreamSource,
         Transform2D,
-      } = await import("@snap/camera-kit");
+      } = cameraKitModule;
 
-      const cameraKit = await bootstrapCameraKit({ apiToken });
+      const cameraKit = await bootstrapCameraKit({
+        apiToken,
+      });
+
       const session = await cameraKit.createSession();
 
       snapContainerRef.current.innerHTML = "";
       snapContainerRef.current.appendChild(session.output.live);
 
-      const canvas = session.output.live as HTMLCanvasElement;
-      snapCanvasRef.current = canvas;
+      snapCanvasRef.current = session.output.live as HTMLCanvasElement;
 
-      canvas.className =
-        "block w-full h-full object-cover rounded-[28px] bg-black";
-
-      canvas.style.width = "100%";
-      canvas.style.height = "100%";
-      canvas.style.objectFit = "cover";
-      canvas.style.display = "block";
+      session.output.live.className =
+        "w-full h-full object-cover rounded-[28px] bg-black";
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -124,8 +133,11 @@ export default function Home() {
       setCameraError("");
     } catch (error: any) {
       console.error("SNAP ERROR:", error);
+
       setCameraError(
-        error?.message || JSON.stringify(error) || "Snap Lens 載入失敗"
+        error?.message ||
+          JSON.stringify(error) ||
+          "Snap Lens 載入失敗"
       );
     }
   }
@@ -136,7 +148,12 @@ export default function Home() {
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (!error) setVideos(data || []);
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setVideos(data || []);
   }
 
   async function fetchComments(videoId: number) {
@@ -146,7 +163,12 @@ export default function Home() {
       .eq("video_id", videoId)
       .order("created_at", { ascending: false });
 
-    if (!error) setComments(data || []);
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setComments(data || []);
   }
 
   function openComments(item: VideoItem) {
@@ -192,8 +214,10 @@ export default function Home() {
 
     recorder.onstop = () => {
       const blob = new Blob(chunks.current, { type: "video/webm" });
+      const url = URL.createObjectURL(blob);
+
       setVideoBlob(blob);
-      setVideoURL(URL.createObjectURL(blob));
+      setVideoURL(url);
     };
 
     recorder.start();
@@ -222,6 +246,7 @@ export default function Home() {
       });
 
     if (uploadError) {
+      console.error(uploadError);
       alert("影片上傳失敗");
       setUploading(false);
       return;
@@ -238,14 +263,16 @@ export default function Home() {
       },
     ]);
 
-    setUploading(false);
-
     if (insertError) {
+      console.error(insertError);
       alert("資料庫寫入失敗");
+      setUploading(false);
       return;
     }
 
     alert("影片上傳成功");
+
+    setUploading(false);
     setVideoURL("");
     setVideoBlob(null);
     fetchVideos();
@@ -272,6 +299,7 @@ export default function Home() {
     ]);
 
     if (error) {
+      console.error(error);
       alert("點讚失敗");
       return;
     }
@@ -304,6 +332,7 @@ export default function Home() {
     ]);
 
     if (error) {
+      console.error(error);
       alert("留言失敗");
       setSendingComment(false);
       return;
@@ -318,8 +347,14 @@ export default function Home() {
 
     setCommentText("");
     setSendingComment(false);
-    fetchComments(selectedVideo.id);
-    fetchVideos();
+
+    await fetchComments(selectedVideo.id);
+    await fetchVideos();
+
+    setSelectedVideo({
+      ...selectedVideo,
+      comment_count: (selectedVideo.comment_count || 0) + 1,
+    });
   }
 
   async function deleteVideo(item: VideoItem) {
@@ -336,18 +371,28 @@ export default function Home() {
       await supabase.storage.from("susu").remove([fileName]);
     }
 
-    await supabase.from("videos").delete().eq("id", item.id);
+    const { error } = await supabase
+      .from("videos")
+      .delete()
+      .eq("id", item.id);
+
+    if (error) {
+      console.error(error);
+      alert("刪除失敗");
+      return;
+    }
+
     fetchVideos();
   }
 
   return (
     <main className="bg-black min-h-screen text-white">
       <section className="min-h-screen flex flex-col items-center justify-center gap-5 px-4 py-8 border-b border-white/10">
-        <h1 className="text-3xl md:text-5xl font-black tracking-wide text-center">
+        <h1 className="text-3xl font-black tracking-wide text-center">
           AR Lens Video Recorder
         </h1>
 
-        <div className="w-full max-w-[420px] md:max-w-[700px] aspect-[9/16] rounded-[28px] border border-white/20 bg-black shadow-2xl overflow-hidden">
+        <div className="w-full max-w-[420px] aspect-[9/16] rounded-[28px] border border-white/20 bg-black shadow-2xl overflow-hidden">
           <div ref={snapContainerRef} className="w-full h-full" />
         </div>
 
@@ -357,30 +402,28 @@ export default function Home() {
           </p>
         )}
 
-        {cameraReady && !recording && (
+        {cameraReady && !recording ? (
           <button
             onClick={startRecording}
             className="bg-white text-black px-7 py-3 rounded-2xl font-bold text-base"
           >
             開始錄影
           </button>
-        )}
-
-        {cameraReady && recording && (
+        ) : cameraReady && recording ? (
           <button
             onClick={stopRecording}
             className="bg-red-500 text-white px-7 py-3 rounded-2xl font-bold text-base"
           >
             停止錄影
           </button>
-        )}
+        ) : null}
 
         {videoURL && (
           <div className="w-full max-w-[420px] flex flex-col gap-3">
             <video
               src={videoURL}
               controls
-              className="w-full rounded-3xl border border-white/20"
+              className="rounded-3xl border border-white/20"
             />
 
             <button
