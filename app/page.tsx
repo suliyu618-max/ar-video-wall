@@ -64,10 +64,6 @@ export default function Home() {
       const lensId = process.env.NEXT_PUBLIC_SNAP_LENS_ID;
       const lensGroupId = process.env.NEXT_PUBLIC_SNAP_LENS_GROUP_ID;
 
-      console.log("SNAP_API_TOKEN =", apiToken);
-      console.log("SNAP_LENS_ID =", lensId);
-      console.log("SNAP_LENS_GROUP_ID =", lensGroupId);
-
       if (!apiToken || !lensId || !lensGroupId) {
         setCameraError(
           `API TOKEN: ${apiToken ? "✅ OK" : "❌ MISSING"}
@@ -101,17 +97,14 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
       snapCanvasRef.current = session.output.live as HTMLCanvasElement;
 
       session.output.live.className =
-  "w-full h-full object-contain rounded-[28px] bg-black";
+        "w-full h-auto object-contain rounded-[28px] bg-black";
 
       const stream = await navigator.mediaDevices.getUserMedia({
-  video: {
-    facingMode: "user",
-    width: { ideal: 1280 },
-    height: { ideal: 720 },
-    aspectRatio: 16 / 9,
-  },
-  audio: true,
-});
+        video: {
+          facingMode: "user",
+        },
+        audio: true,
+      });
 
       cameraStreamRef.current = stream;
 
@@ -136,9 +129,7 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
       console.error("SNAP ERROR:", error);
 
       setCameraError(
-        error?.message ||
-          JSON.stringify(error) ||
-          "Snap Lens 載入失敗"
+        error?.message || JSON.stringify(error) || "Snap Lens 載入失敗"
       );
     }
   }
@@ -393,8 +384,8 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
           AR Lens Video Recorder
         </h1>
 
-        <div className="w-full max-w-[420px] aspect-[9/16] rounded-[28px] border border-white/20 bg-black shadow-2xl overflow-hidden">
-          <div ref={snapContainerRef} className="w-full h-full" />
+        <div className="w-full max-w-[420px] rounded-[28px] border border-white/20 bg-black shadow-2xl overflow-hidden">
+          <div ref={snapContainerRef} className="w-full" />
         </div>
 
         {!cameraReady && (
@@ -424,7 +415,7 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
             <video
               src={videoURL}
               controls
-              className="rounded-3xl border border-white/20"
+              className="w-full rounded-3xl border border-white/20"
             />
 
             <button
@@ -454,7 +445,7 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
                 controls
                 playsInline
                 loop
-                className="w-full aspect-[9/16] object-cover bg-black rounded-[28px] border border-white/15 shadow-2xl"
+                className="w-full object-contain bg-black rounded-[28px] border border-white/15 shadow-2xl"
               />
 
               <div className="w-full rounded-[24px] border border-white/25 bg-black/80 backdrop-blur-xl px-3 py-3 shadow-xl">
