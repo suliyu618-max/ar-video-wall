@@ -81,9 +81,7 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
 
       if (!snapContainerRef.current) return;
 
-      const cameraKitModule = await new Function(
-        "return import('@snap/camera-kit')"
-      )();
+      const cameraKitModule = await import("@snap/camera-kit");
 
       const {
         bootstrapCameraKit,
