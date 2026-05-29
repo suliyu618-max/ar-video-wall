@@ -79,10 +79,7 @@ export default function Home() {
         Transform2D,
       } = cameraKitModule;
 
-      const cameraKit = await bootstrapCameraKit({
-        apiToken,
-      });
-
+      const cameraKit = await bootstrapCameraKit({ apiToken });
       const session = await cameraKit.createSession();
 
       snapContainerRef.current.innerHTML = "";
@@ -123,7 +120,6 @@ export default function Home() {
       setCameraError("");
     } catch (error: any) {
       console.error("SNAP ERROR:", error);
-
       setCameraError(
         error?.message || JSON.stringify(error) || "Snap Lens 載入失敗"
       );
@@ -136,12 +132,7 @@ export default function Home() {
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error(error);
-      return;
-    }
-
-    setVideos(data || []);
+    if (!error) setVideos(data || []);
   }
 
   async function fetchComments(videoId: number) {
@@ -151,12 +142,7 @@ export default function Home() {
       .eq("video_id", videoId)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error(error);
-      return;
-    }
-
-    setComments(data || []);
+    if (!error) setComments(data || []);
   }
 
   function openComments(item: VideoItem) {
@@ -202,10 +188,8 @@ export default function Home() {
 
     recorder.onstop = () => {
       const blob = new Blob(chunks.current, { type: "video/webm" });
-      const url = URL.createObjectURL(blob);
-
       setVideoBlob(blob);
-      setVideoURL(url);
+      setVideoURL(URL.createObjectURL(blob));
     };
 
     recorder.start();
@@ -234,7 +218,6 @@ export default function Home() {
       });
 
     if (uploadError) {
-      console.error(uploadError);
       alert("影片上傳失敗");
       setUploading(false);
       return;
@@ -251,16 +234,14 @@ export default function Home() {
       },
     ]);
 
+    setUploading(false);
+
     if (insertError) {
-      console.error(insertError);
       alert("資料庫寫入失敗");
-      setUploading(false);
       return;
     }
 
     alert("影片上傳成功");
-
-    setUploading(false);
     setVideoURL("");
     setVideoBlob(null);
     fetchVideos();
@@ -287,7 +268,6 @@ export default function Home() {
     ]);
 
     if (error) {
-      console.error(error);
       alert("點讚失敗");
       return;
     }
@@ -320,7 +300,6 @@ export default function Home() {
     ]);
 
     if (error) {
-      console.error(error);
       alert("留言失敗");
       setSendingComment(false);
       return;
@@ -335,14 +314,8 @@ export default function Home() {
 
     setCommentText("");
     setSendingComment(false);
-
-    await fetchComments(selectedVideo.id);
-    await fetchVideos();
-
-    setSelectedVideo({
-      ...selectedVideo,
-      comment_count: (selectedVideo.comment_count || 0) + 1,
-    });
+    fetchComments(selectedVideo.id);
+    fetchVideos();
   }
 
   async function deleteVideo(item: VideoItem) {
@@ -359,17 +332,7 @@ export default function Home() {
       await supabase.storage.from("susu").remove([fileName]);
     }
 
-    const { error } = await supabase
-      .from("videos")
-      .delete()
-      .eq("id", item.id);
-
-    if (error) {
-      console.error(error);
-      alert("刪除失敗");
-      return;
-    }
-
+    await supabase.from("videos").delete().eq("id", item.id);
     fetchVideos();
   }
 
@@ -380,7 +343,7 @@ export default function Home() {
           AR Lens Video Recorder
         </h1>
 
-        <div className="w-full max-w-[420px] md:max-w-[700px] aspect-[9/16] rounded-[28px] border border-white/20 bg-black shadow-2xl overflow-hidden">
+        <div className="w-full max-w-[420px] aspect-[9/16] rounded-[28px] border border-white/20 bg-black shadow-2xl overflow-hidden">
           <div ref={snapContainerRef} className="w-full h-full" />
         </div>
 
@@ -390,21 +353,23 @@ export default function Home() {
           </p>
         )}
 
-        {cameraReady && !recording ? (
+        {cameraReady && !recording && (
           <button
             onClick={startRecording}
             className="bg-white text-black px-7 py-3 rounded-2xl font-bold text-base"
           >
             開始錄影
           </button>
-        ) : cameraReady && recording ? (
+        )}
+
+        {cameraReady && recording && (
           <button
             onClick={stopRecording}
             className="bg-red-500 text-white px-7 py-3 rounded-2xl font-bold text-base"
           >
             停止錄影
           </button>
-        ) : null}
+        )}
 
         {videoURL && (
           <div className="w-full max-w-[420px] flex flex-col gap-3">
