@@ -101,16 +101,17 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
       snapCanvasRef.current = session.output.live as HTMLCanvasElement;
 
       session.output.live.className =
-        "w-full h-full object-contain rounded-[28px] bg-black";
+  "w-full h-full object-contain rounded-[28px] bg-black";
 
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "user",
-          width: { ideal: 720 },
-          height: { ideal: 1280 },
-        },
-        audio: true,
-      });
+  video: {
+    facingMode: "user",
+    width: { ideal: 1280 },
+    height: { ideal: 720 },
+    aspectRatio: 16 / 9,
+  },
+  audio: true,
+});
 
       cameraStreamRef.current = stream;
 
