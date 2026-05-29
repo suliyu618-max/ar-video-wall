@@ -97,7 +97,7 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
       snapCanvasRef.current = session.output.live as HTMLCanvasElement;
 
       session.output.live.className =
-        "w-full h-auto object-contain rounded-[28px] bg-black";
+        "w-full h-full object-contain rounded-[28px] bg-black";
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -384,8 +384,11 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
           AR Lens Video Recorder
         </h1>
 
-        <div className="w-full max-w-[420px] rounded-[28px] border border-white/20 bg-black shadow-2xl overflow-hidden">
-          <div ref={snapContainerRef} className="w-full" />
+        <div className="w-full max-w-[420px] aspect-[3/4] rounded-[28px] border border-white/20 bg-black shadow-2xl overflow-hidden flex items-center justify-center">
+          <div
+            ref={snapContainerRef}
+            className="w-full h-full flex items-center justify-center"
+          />
         </div>
 
         {!cameraReady && (
