@@ -27,8 +27,6 @@ export default function Home() {
   const chunks = useRef<Blob[]>([]);
 
   const [cameraReady, setCameraReady] = useState(false);
-  const [cameraFacing, setCameraFacing] = useState<"user" | "environment">("user");
-  const [switchingCamera, setSwitchingCamera] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [recording, setRecording] = useState(false);
   const [videoURL, setVideoURL] = useState("");
@@ -58,13 +56,17 @@ export default function Home() {
     };
   }, []);
 
-  async function initSnapCamera(facing: "user" | "environment" = "user") {
+  async function initSnapCamera() {
     try {
       if (typeof window === "undefined") return;
 
       const apiToken = process.env.NEXT_PUBLIC_SNAP_API_TOKEN;
       const lensId = process.env.NEXT_PUBLIC_SNAP_LENS_ID;
       const lensGroupId = process.env.NEXT_PUBLIC_SNAP_LENS_GROUP_ID;
+
+      console.log("SNAP_API_TOKEN =", apiToken);
+      console.log("SNAP_LENS_ID =", lensId);
+      console.log("SNAP_LENS_GROUP_ID =", lensGroupId);
 
       if (!apiToken || !lensId || !lensGroupId) {
         setCameraError(
@@ -99,30 +101,23 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
       snapCanvasRef.current = session.output.live as HTMLCanvasElement;
 
       session.output.live.className =
-        "w-full h-full object-contain rounded-[28px] bg-black";
+        "w-full h-full object-cover rounded-[28px] bg-black";
 
-      cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
-
-const stream = await navigator.mediaDevices.getUserMedia({
-  video: {
-    facingMode: facing,
-    width: { ideal: 1280 },
-    height: { ideal: 720 },
-  },
-  audio: true,
-});
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          width: { ideal: 720 },
+          height: { ideal: 1280 },
+        },
+        audio: true,
+      });
 
       cameraStreamRef.current = stream;
 
-      const sourceOptions: any = {
-  cameraType: facing,
-};
-
-if (facing === "user") {
-  sourceOptions.transform = Transform2D.MirrorX;
-}
-
-const source = createMediaStreamSource(stream, sourceOptions);
+      const source = createMediaStreamSource(stream, {
+        transform: Transform2D.MirrorX,
+        cameraType: "user",
+      });
 
       await session.setSource(source);
 
@@ -132,9 +127,7 @@ const source = createMediaStreamSource(stream, sourceOptions);
       );
 
       await session.applyLens(lens);
-
-
-await session.play();
+      await session.play();
 
       setCameraReady(true);
       setCameraError("");
@@ -142,7 +135,9 @@ await session.play();
       console.error("SNAP ERROR:", error);
 
       setCameraError(
-        error?.message || JSON.stringify(error) || "Snap Lens 載入失敗"
+        error?.message ||
+          JSON.stringify(error) ||
+          "Snap Lens 載入失敗"
       );
     }
   }
@@ -233,22 +228,7 @@ await session.play();
     recorderRef.current?.stop();
     setRecording(false);
   }
-async function switchCamera() {
-  if (recording) {
-    alert("錄影中不能切換鏡頭");
-    return;
-  }
 
-  const nextFacing = cameraFacing === "user" ? "environment" : "user";
-
-  setSwitchingCamera(true);
-  setCameraReady(false);
-  setCameraFacing(nextFacing);
-
-  await initSnapCamera(nextFacing);
-
-  setSwitchingCamera(false);
-}
   async function uploadVideo() {
     if (!videoBlob) {
       alert("請先錄影");
@@ -412,15 +392,8 @@ async function switchCamera() {
           AR Lens Video Recorder
         </h1>
 
-        <div className="w-full max-w-[420px] aspect-[3/4] rounded-[28px] border border-white/20 bg-black shadow-2xl overflow-hidden flex items-center justify-center">
-          <div
-           className="w-full h-full flex items-center justify-center">
-  <div
-    ref={snapContainerRef}
-    className="w-[20%] h-[20%]"
-  />
-</div>
-          /
+        <div className="w-full max-w-[420px] aspect-[9/16] rounded-[28px] border border-white/20 bg-black shadow-2xl overflow-hidden">
+          <div ref={snapContainerRef} className="w-full h-full" />
         </div>
 
         {!cameraReady && (
@@ -441,19 +414,6 @@ async function switchCamera() {
             onClick={stopRecording}
             className="bg-red-500 text-white px-7 py-3 rounded-2xl font-bold text-base"
           >
-            {cameraReady && (
-  <button
-    onClick={switchCamera}
-    disabled={switchingCamera}
-    className="bg-white/10 text-white px-7 py-3 rounded-2xl font-bold text-base border border-white/20"
-  >
-    {switchingCamera
-      ? "切換中..."
-      : cameraFacing === "user"
-      ? "切換後鏡頭"
-      : "切換前鏡頭"}
-  </button>
-)}
             停止錄影
           </button>
         ) : null}
@@ -463,7 +423,7 @@ async function switchCamera() {
             <video
               src={videoURL}
               controls
-              className="w-full rounded-3xl border border-white/20"
+              className="rounded-3xl border border-white/20"
             />
 
             <button
@@ -493,7 +453,7 @@ async function switchCamera() {
                 controls
                 playsInline
                 loop
-                className="w-full object-contain bg-black rounded-[28px] border border-white/15 shadow-2xl"
+                className="w-full aspect-[9/16] object-cover bg-black rounded-[28px] border border-white/15 shadow-2xl"
               />
 
               <div className="w-full rounded-[24px] border border-white/25 bg-black/80 backdrop-blur-xl px-3 py-3 shadow-xl">
