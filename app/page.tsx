@@ -27,6 +27,8 @@ export default function Home() {
   const chunks = useRef<Blob[]>([]);
 
   const [cameraReady, setCameraReady] = useState(false);
+  const [cameraFacing, setCameraFacing] = useState<"user" | "environment">("user");
+  const [switchingCamera, setSwitchingCamera] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [recording, setRecording] = useState(false);
   const [videoURL, setVideoURL] = useState("");
@@ -56,7 +58,7 @@ export default function Home() {
     };
   }, []);
 
-  async function initSnapCamera() {
+  async function initSnapCamera(facing: "user" | "environment" = "user") {
     try {
       if (typeof window === "undefined") return;
 
@@ -99,22 +101,28 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
       session.output.live.className =
         "w-full h-full object-contain rounded-[28px] bg-black";
 
-      const stream = await navigator.mediaDevices.getUserMedia({
+      cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+
+const stream = await navigator.mediaDevices.getUserMedia({
   video: {
-    facingMode: "user",
+    facingMode: facing,
     width: { ideal: 1280 },
     height: { ideal: 720 },
-    aspectRatio: { ideal: 16 / 9 },
   },
   audio: true,
 });
 
       cameraStreamRef.current = stream;
 
-      const source = createMediaStreamSource(stream, {
-        transform: Transform2D.MirrorX,
-        cameraType: "user",
-      });
+      const sourceOptions: any = {
+  cameraType: facing,
+};
+
+if (facing === "user") {
+  sourceOptions.transform = Transform2D.MirrorX;
+}
+
+const source = createMediaStreamSource(stream, sourceOptions);
 
       await session.setSource(source);
 
@@ -225,7 +233,22 @@ await session.play();
     recorderRef.current?.stop();
     setRecording(false);
   }
+async function switchCamera() {
+  if (recording) {
+    alert("錄影中不能切換鏡頭");
+    return;
+  }
 
+  const nextFacing = cameraFacing === "user" ? "environment" : "user";
+
+  setSwitchingCamera(true);
+  setCameraReady(false);
+  setCameraFacing(nextFacing);
+
+  await initSnapCamera(nextFacing);
+
+  setSwitchingCamera(false);
+}
   async function uploadVideo() {
     if (!videoBlob) {
       alert("請先錄影");
@@ -418,6 +441,19 @@ await session.play();
             onClick={stopRecording}
             className="bg-red-500 text-white px-7 py-3 rounded-2xl font-bold text-base"
           >
+            {cameraReady && (
+  <button
+    onClick={switchCamera}
+    disabled={switchingCamera}
+    className="bg-white/10 text-white px-7 py-3 rounded-2xl font-bold text-base border border-white/20"
+  >
+    {switchingCamera
+      ? "切換中..."
+      : cameraFacing === "user"
+      ? "切換後鏡頭"
+      : "切換前鏡頭"}
+  </button>
+)}
             停止錄影
           </button>
         ) : null}
