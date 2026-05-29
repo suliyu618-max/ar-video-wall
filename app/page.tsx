@@ -71,13 +71,11 @@ export default function Home() {
 
       if (!snapContainerRef.current) return;
 
-      const cameraKitModule = await import("@snap/camera-kit");
-
       const {
         bootstrapCameraKit,
         createMediaStreamSource,
         Transform2D,
-      } = cameraKitModule;
+      } = await import("@snap/camera-kit");
 
       const cameraKit = await bootstrapCameraKit({ apiToken });
       const session = await cameraKit.createSession();
@@ -85,10 +83,16 @@ export default function Home() {
       snapContainerRef.current.innerHTML = "";
       snapContainerRef.current.appendChild(session.output.live);
 
-      snapCanvasRef.current = session.output.live as HTMLCanvasElement;
+      const canvas = session.output.live as HTMLCanvasElement;
+      snapCanvasRef.current = canvas;
 
-      session.output.live.className =
-        "w-full h-full object-cover rounded-[28px] bg-black";
+      canvas.className =
+        "block w-full h-full object-cover rounded-[28px] bg-black";
+
+      canvas.style.width = "100%";
+      canvas.style.height = "100%";
+      canvas.style.objectFit = "cover";
+      canvas.style.display = "block";
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -339,11 +343,11 @@ export default function Home() {
   return (
     <main className="bg-black min-h-screen text-white">
       <section className="min-h-screen flex flex-col items-center justify-center gap-5 px-4 py-8 border-b border-white/10">
-        <h1 className="text-3xl font-black tracking-wide text-center">
+        <h1 className="text-3xl md:text-5xl font-black tracking-wide text-center">
           AR Lens Video Recorder
         </h1>
 
-        <div className="w-full max-w-[420px] aspect-[9/16] rounded-[28px] border border-white/20 bg-black shadow-2xl overflow-hidden">
+        <div className="w-full max-w-[420px] md:max-w-[700px] aspect-[9/16] rounded-[28px] border border-white/20 bg-black shadow-2xl overflow-hidden">
           <div ref={snapContainerRef} className="w-full h-full" />
         </div>
 
