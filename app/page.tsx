@@ -12,6 +12,13 @@ type VideoItem = {
   comment_count: number | null;
 };
 
+type CommentItem = {
+  id: number;
+  video_id: number;
+  content: string;
+  created_at: string;
+};
+
 export default function Home() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -26,6 +33,12 @@ export default function Home() {
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [userToken, setUserToken] = useState("");
 
+  const [commentOpen, setCommentOpen] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
+  const [comments, setComments] = useState<CommentItem[]>([]);
+  const [commentText, setCommentText] = useState("");
+  const [sendingComment, setSendingComment] = useState(false);
+
   useEffect(() => {
     let token = localStorage.getItem("uploader_token");
 
@@ -39,9 +52,7 @@ export default function Home() {
     fetchVideos();
 
     return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
   }, []);
 
@@ -73,7 +84,6 @@ export default function Home() {
   function drawMirrorCanvas() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-
     if (!video || !canvas) return;
 
     const ctx = canvas.getContext("2d");
@@ -109,6 +119,35 @@ export default function Home() {
     }
 
     setVideos(data || []);
+  }
+
+  async function fetchComments(videoId: number) {
+    const { data, error } = await supabase
+      .from("comments")
+      .select("*")
+      .eq("video_id", videoId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setComments(data || []);
+  }
+
+  function openComments(item: VideoItem) {
+    setSelectedVideo(item);
+    setCommentOpen(true);
+    setCommentText("");
+    fetchComments(item.id);
+  }
+
+  function closeComments() {
+    setCommentOpen(false);
+    setSelectedVideo(null);
+    setComments([]);
+    setCommentText("");
   }
 
   function startRecording() {
@@ -238,30 +277,49 @@ export default function Home() {
     fetchVideos();
   }
 
-  async function addComment(item: VideoItem) {
-    const content = prompt("請輸入留言");
+  async function submitComment() {
+    if (!selectedVideo) return;
 
-    if (!content || !content.trim()) return;
+    const content = commentText.trim();
+
+    if (!content) {
+      alert("請輸入留言內容");
+      return;
+    }
+
+    setSendingComment(true);
 
     const { error } = await supabase.from("comments").insert([
       {
-        video_id: item.id,
-        content: content.trim(),
+        video_id: selectedVideo.id,
+        content,
       },
     ]);
 
     if (error) {
       console.error(error);
       alert("留言失敗");
+      setSendingComment(false);
       return;
     }
 
     await supabase
       .from("videos")
-      .update({ comment_count: (item.comment_count || 0) + 1 })
-      .eq("id", item.id);
+      .update({
+        comment_count: (selectedVideo.comment_count || 0) + 1,
+      })
+      .eq("id", selectedVideo.id);
 
-    fetchVideos();
+    setCommentText("");
+    setSendingComment(false);
+
+    await fetchComments(selectedVideo.id);
+    await fetchVideos();
+
+    setSelectedVideo({
+      ...selectedVideo,
+      comment_count: (selectedVideo.comment_count || 0) + 1,
+    });
   }
 
   async function deleteVideo(item: VideoItem) {
@@ -354,7 +412,10 @@ export default function Home() {
           </div>
         ) : (
           videos.map((item, index) => (
-            <article key={item.id} className="w-full max-w-[430px] flex flex-col gap-3">
+            <article
+              key={item.id}
+              className="w-full max-w-[430px] flex flex-col gap-3"
+            >
               <video
                 src={item.video_url}
                 controls
@@ -377,7 +438,7 @@ export default function Home() {
                   </button>
 
                   <button
-                    onClick={() => addComment(item)}
+                    onClick={() => openComments(item)}
                     className="flex flex-col items-center justify-center gap-1 px-1"
                   >
                     <span className="text-2xl">💬</span>
@@ -402,7 +463,9 @@ export default function Home() {
                     >
                       <span className="text-2xl">🗑️</span>
                       <span className="text-sm font-bold">刪除</span>
-                      <span className="text-[10px] text-red-100/70">上傳者</span>
+                      <span className="text-[10px] text-red-100/70">
+                        上傳者
+                      </span>
                     </button>
                   ) : (
                     <div className="flex flex-col items-center justify-center gap-1 px-1 opacity-45">
@@ -429,6 +492,67 @@ export default function Home() {
           ))
         )}
       </section>
+
+      {commentOpen && selectedVideo && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center">
+          <div className="w-full max-w-[430px] max-h-[85vh] rounded-t-[28px] sm:rounded-[28px] bg-zinc-950 border border-white/15 shadow-2xl flex flex-col overflow-hidden">
+            <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-black">留言</h2>
+                <p className="text-xs text-white/50">
+                  共 {selectedVideo.comment_count || 0} 則留言
+                </p>
+              </div>
+
+              <button
+                onClick={closeComments}
+                className="w-10 h-10 rounded-full bg-white/10 text-xl"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3">
+              {comments.length === 0 ? (
+                <p className="text-white/50 text-sm text-center py-8">
+                  目前尚無留言，成為第一個留言的人吧！
+                </p>
+              ) : (
+                comments.map((comment) => (
+                  <div
+                    key={comment.id}
+                    className="rounded-2xl bg-white/10 border border-white/10 px-4 py-3"
+                  >
+                    <p className="text-sm leading-relaxed">
+                      {comment.content}
+                    </p>
+                    <p className="text-[10px] text-white/40 mt-2">
+                      {new Date(comment.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="p-4 border-t border-white/10 flex gap-2">
+              <input
+                value={commentText}
+                onChange={(event) => setCommentText(event.target.value)}
+                placeholder="輸入留言..."
+                className="flex-1 rounded-2xl bg-white/10 border border-white/10 px-4 py-3 text-sm outline-none"
+              />
+
+              <button
+                onClick={submitComment}
+                disabled={sendingComment}
+                className="rounded-2xl bg-white text-black px-5 py-3 text-sm font-bold"
+              >
+                {sendingComment ? "送出中" : "送出"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
