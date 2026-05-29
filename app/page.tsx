@@ -64,8 +64,18 @@ export default function Home() {
       const lensId = process.env.NEXT_PUBLIC_SNAP_LENS_ID;
       const lensGroupId = process.env.NEXT_PUBLIC_SNAP_LENS_GROUP_ID;
 
+      console.log("SNAP_API_TOKEN =", apiToken);
+      console.log("SNAP_LENS_ID =", lensId);
+      console.log("SNAP_LENS_GROUP_ID =", lensGroupId);
+
       if (!apiToken || !lensId || !lensGroupId) {
-        setCameraError("缺少 Snap Camera Kit 環境變數");
+        setCameraError(
+          `API TOKEN: ${apiToken ? "✅ OK" : "❌ MISSING"}
+
+LENS ID: ${lensId ? "✅ OK" : "❌ MISSING"}
+
+GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
+        );
         return;
       }
 
@@ -123,9 +133,14 @@ export default function Home() {
 
       setCameraReady(true);
       setCameraError("");
-    } catch (error) {
-      console.error(error);
-      setCameraError("Snap Lens 載入失敗，請檢查 Token、Lens ID、Group ID");
+    } catch (error: any) {
+      console.error("SNAP ERROR:", error);
+
+      setCameraError(
+        error?.message ||
+          JSON.stringify(error) ||
+          "Snap Lens 載入失敗"
+      );
     }
   }
 
@@ -384,7 +399,7 @@ export default function Home() {
         </div>
 
         {!cameraReady && (
-          <p className="text-sm text-white/60 text-center max-w-[320px]">
+          <p className="text-sm text-white/60 text-center max-w-[320px] whitespace-pre-line">
             {cameraError || "Lens 載入中，請稍候..."}
           </p>
         )}
