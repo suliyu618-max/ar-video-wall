@@ -42,14 +42,12 @@ export default function Home() {
   const [sendingComment, setSendingComment] = useState(false);
 
   useEffect(() => {
-    let token = localStorage.getItem("uploader_token");
+    const token =
+      localStorage.getItem("uploader_token") || crypto.randomUUID();
 
-    if (!token) {
-      token = crypto.randomUUID();
-      localStorage.setItem("uploader_token", token);
-    }
-
+    localStorage.setItem("uploader_token", token);
     setUserToken(token);
+
     fetchVideos();
     initSnapCamera();
 
@@ -60,6 +58,8 @@ export default function Home() {
 
   async function initSnapCamera() {
     try {
+      if (typeof window === "undefined") return;
+
       const apiToken = process.env.NEXT_PUBLIC_SNAP_API_TOKEN;
       const lensId = process.env.NEXT_PUBLIC_SNAP_LENS_ID;
       const lensGroupId = process.env.NEXT_PUBLIC_SNAP_LENS_GROUP_ID;
@@ -71,7 +71,9 @@ export default function Home() {
 
       if (!snapContainerRef.current) return;
 
-      const cameraKitModule = await import("@snap/camera-kit");
+      const cameraKitModule = await new Function(
+        "return import('@snap/camera-kit')"
+      )();
 
       const {
         bootstrapCameraKit,
