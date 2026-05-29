@@ -33,7 +33,17 @@ export default function Home() {
   const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
   const [uploading, setUploading] = useState(false);
   const [videos, setVideos] = useState<VideoItem[]>([]);
-  const [userToken, setUserToken] = useState("");
+  const [userToken] = useState(() => {
+  if (typeof window === "undefined") return "";
+
+  const token =
+    localStorage.getItem("uploader_token") ||
+    crypto.randomUUID();
+
+  localStorage.setItem("uploader_token", token);
+
+  return token;
+});
 
   const [commentOpen, setCommentOpen] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
@@ -42,12 +52,6 @@ export default function Home() {
   const [sendingComment, setSendingComment] = useState(false);
 
   useEffect(() => {
-    const token =
-      localStorage.getItem("uploader_token") || crypto.randomUUID();
-
-    localStorage.setItem("uploader_token", token);
-    setUserToken(token);
-
     fetchVideos();
     initSnapCamera();
 
@@ -131,14 +135,14 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
 
       setCameraReady(true);
       setCameraError("");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("SNAP ERROR:", error);
 
       setCameraError(
-        error?.message ||
-          JSON.stringify(error) ||
-          "Snap Lens 載入失敗"
-      );
+  error instanceof Error
+    ? error.message
+    : "Snap Lens 載入失敗"
+);
     }
   }
 
