@@ -121,7 +121,11 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
       );
 
       await session.applyLens(lens);
-      await session.play();
+
+session.output.live.style.transform = "scale(0.5)";
+session.output.live.style.transformOrigin = "center center";
+
+await session.play();
 
       setCameraReady(true);
       setCameraError("");
