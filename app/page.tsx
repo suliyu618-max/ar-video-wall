@@ -100,11 +100,14 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
         "w-full h-full object-contain rounded-[28px] bg-black";
 
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "user",
-        },
-        audio: true,
-      });
+  video: {
+    facingMode: "user",
+    width: { ideal: 1280 },
+    height: { ideal: 720 },
+    aspectRatio: { ideal: 16 / 9 },
+  },
+  audio: true,
+});
 
       cameraStreamRef.current = stream;
 
@@ -122,8 +125,6 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
 
       await session.applyLens(lens);
 
-session.output.live.style.transform = "scale(0.5)";
-session.output.live.style.transformOrigin = "center center";
 
 await session.play();
 
