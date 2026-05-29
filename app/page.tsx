@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+  bootstrapCameraKit,
+  createMediaStreamSource,
+  Transform2D,
+} from "@snap/camera-kit";
 import { supabase } from "@/lib/supabase";
 
 type VideoItem = {
@@ -20,12 +25,14 @@ type CommentItem = {
 };
 
 export default function Home() {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const snapContainerRef = useRef<HTMLDivElement>(null);
+  const snapCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
-  const animationRef = useRef<number | null>(null);
 
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraError, setCameraError] = useState("");
   const [recording, setRecording] = useState(false);
   const [videoURL, setVideoURL] = useState("");
   const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
@@ -48,63 +55,72 @@ export default function Home() {
     }
 
     setUserToken(token);
-    startCamera();
     fetchVideos();
+    initSnapCamera();
 
     return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
     };
   }, []);
 
-  async function startCamera() {
+  async function initSnapCamera() {
     try {
+      const apiToken = process.env.NEXT_PUBLIC_SNAP_API_TOKEN;
+      const lensId = process.env.NEXT_PUBLIC_SNAP_LENS_ID;
+      const lensGroupId = process.env.NEXT_PUBLIC_SNAP_LENS_GROUP_ID;
+
+      if (!apiToken || !lensId || !lensGroupId) {
+        setCameraError("缺少 Snap Camera Kit 環境變數");
+        return;
+      }
+
+      if (!snapContainerRef.current) return;
+
+      const cameraKit = await bootstrapCameraKit({
+        apiToken,
+      });
+
+      const session = await cameraKit.createSession();
+
+      snapContainerRef.current.innerHTML = "";
+      snapContainerRef.current.appendChild(session.output.live);
+
+      snapCanvasRef.current = session.output.live;
+
+      session.output.live.className =
+        "w-full h-full object-cover rounded-[28px] bg-black";
+
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" },
+        video: {
+          facingMode: "user",
+          width: { ideal: 720 },
+          height: { ideal: 1280 },
+        },
         audio: true,
       });
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+      cameraStreamRef.current = stream;
 
-        videoRef.current.onloadeddata = () => {
-          drawMirrorCanvas();
-        };
+      const source = createMediaStreamSource(stream, {
+        transform: Transform2D.MirrorX,
+        cameraType: "user",
+      });
 
-        setTimeout(() => {
-          drawMirrorCanvas();
-        }, 500);
-      }
+      await session.setSource(source);
+
+      const lens = await cameraKit.lensRepository.loadLens(
+        lensId,
+        lensGroupId
+      );
+
+      await session.applyLens(lens);
+      await session.play();
+
+      setCameraReady(true);
     } catch (error) {
       console.error(error);
-      alert("無法開啟相機，請確認已允許相機與麥克風權限");
+      setCameraError("Snap Lens 載入失敗，請檢查 Token、Lens ID、Group ID");
     }
-  }
-
-  function drawMirrorCanvas() {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    canvas.width = video.videoWidth || 720;
-    canvas.height = video.videoHeight || 1280;
-
-    function draw() {
-      if (!video || !canvas || !ctx) return;
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.save();
-      ctx.scale(-1, 1);
-      ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
-      ctx.restore();
-
-      animationRef.current = requestAnimationFrame(draw);
-    }
-
-    draw();
   }
 
   async function fetchVideos() {
@@ -151,23 +167,23 @@ export default function Home() {
   }
 
   function startRecording() {
-    const canvas = canvasRef.current;
-    const videoStream = videoRef.current?.srcObject as MediaStream;
+    const snapCanvas = snapCanvasRef.current;
+    const cameraStream = cameraStreamRef.current;
 
-    if (!canvas || !videoStream) {
-      alert("尚未取得相機畫面");
+    if (!snapCanvas || !cameraStream) {
+      alert("Lens 尚未載入完成");
       return;
     }
 
     chunks.current = [];
 
-    const canvasStream = canvas.captureStream(30);
+    const outputStream = snapCanvas.captureStream(30);
 
-    videoStream.getAudioTracks().forEach((track) => {
-      canvasStream.addTrack(track);
+    cameraStream.getAudioTracks().forEach((track) => {
+      outputStream.addTrack(track);
     });
 
-    const recorder = new MediaRecorder(canvasStream, {
+    const recorder = new MediaRecorder(outputStream, {
       mimeType: "video/webm",
     });
 
@@ -352,39 +368,36 @@ export default function Home() {
 
   return (
     <main className="bg-black min-h-screen text-white">
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        className="fixed -left-[9999px] top-0 w-[1px] h-[1px] opacity-0"
-      />
-
       <section className="min-h-screen flex flex-col items-center justify-center gap-5 px-4 py-8 border-b border-white/10">
         <h1 className="text-3xl font-black tracking-wide text-center">
-          AR Video Recorder
+          AR Lens Video Recorder
         </h1>
 
-        <canvas
-          ref={canvasRef}
-          className="w-full max-w-[420px] rounded-[28px] border border-white/20 bg-black shadow-2xl"
-        />
+        <div className="w-full max-w-[420px] aspect-[9/16] rounded-[28px] border border-white/20 bg-black shadow-2xl overflow-hidden">
+          <div ref={snapContainerRef} className="w-full h-full" />
+        </div>
 
-        {!recording ? (
+        {!cameraReady && (
+          <p className="text-sm text-white/60">
+            {cameraError || "Lens 載入中，請稍候..."}
+          </p>
+        )}
+
+        {cameraReady && !recording ? (
           <button
             onClick={startRecording}
             className="bg-white text-black px-7 py-3 rounded-2xl font-bold text-base"
           >
             開始錄影
           </button>
-        ) : (
+        ) : cameraReady && recording ? (
           <button
             onClick={stopRecording}
             className="bg-red-500 text-white px-7 py-3 rounded-2xl font-bold text-base"
           >
             停止錄影
           </button>
-        )}
+        ) : null}
 
         {videoURL && (
           <div className="w-full max-w-[420px] flex flex-col gap-3">
