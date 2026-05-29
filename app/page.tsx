@@ -389,7 +389,7 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
            className="w-full h-full flex items-center justify-center">
   <div
     ref={snapContainerRef}
-    className="w-[50%] h-[50%]"
+    className="w-[20%] h-[20%]"
   />
 </div>
           /
