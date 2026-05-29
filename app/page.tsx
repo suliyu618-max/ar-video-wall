@@ -101,7 +101,7 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
       snapCanvasRef.current = session.output.live as HTMLCanvasElement;
 
       session.output.live.className =
-        "w-full h-full object-cover rounded-[28px] bg-black";
+        "w-full h-full object-contain rounded-[28px] bg-black";
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
