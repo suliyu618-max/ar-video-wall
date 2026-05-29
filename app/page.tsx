@@ -39,7 +39,9 @@ export default function Home() {
     fetchVideos();
 
     return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
     };
   }, []);
 
@@ -52,17 +54,26 @@ export default function Home() {
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => drawMirrorCanvas();
+        await videoRef.current.play();
+
+        videoRef.current.onloadeddata = () => {
+          drawMirrorCanvas();
+        };
+
+        setTimeout(() => {
+          drawMirrorCanvas();
+        }, 500);
       }
     } catch (error) {
       console.error(error);
-      alert("無法開啟相機，請允許相機與麥克風權限");
+      alert("無法開啟相機，請確認已允許相機與麥克風權限");
     }
   }
 
   function drawMirrorCanvas() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
+
     if (!video || !canvas) return;
 
     const ctx = canvas.getContext("2d");
@@ -221,9 +232,7 @@ export default function Home() {
 
     await supabase
       .from("videos")
-      .update({
-        like_count: (item.like_count || 0) + 1,
-      })
+      .update({ like_count: (item.like_count || 0) + 1 })
       .eq("id", item.id);
 
     fetchVideos();
@@ -249,9 +258,7 @@ export default function Home() {
 
     await supabase
       .from("videos")
-      .update({
-        comment_count: (item.comment_count || 0) + 1,
-      })
+      .update({ comment_count: (item.comment_count || 0) + 1 })
       .eq("id", item.id);
 
     fetchVideos();
@@ -292,7 +299,7 @@ export default function Home() {
         autoPlay
         playsInline
         muted
-        style={{ display: "none" }}
+        className="fixed -left-[9999px] top-0 w-[1px] h-[1px] opacity-0"
       />
 
       <section className="min-h-screen flex flex-col items-center justify-center gap-5 px-4 py-8 border-b border-white/10">
@@ -347,10 +354,7 @@ export default function Home() {
           </div>
         ) : (
           videos.map((item, index) => (
-            <article
-              key={item.id}
-              className="w-full max-w-[430px] flex flex-col gap-3"
-            >
+            <article key={item.id} className="w-full max-w-[430px] flex flex-col gap-3">
               <video
                 src={item.video_url}
                 controls
@@ -398,17 +402,13 @@ export default function Home() {
                     >
                       <span className="text-2xl">🗑️</span>
                       <span className="text-sm font-bold">刪除</span>
-                      <span className="text-[10px] text-red-100/70">
-                        上傳者
-                      </span>
+                      <span className="text-[10px] text-red-100/70">上傳者</span>
                     </button>
                   ) : (
                     <div className="flex flex-col items-center justify-center gap-1 px-1 opacity-45">
                       <span className="text-2xl">🔒</span>
                       <span className="text-sm font-bold">刪除</span>
-                      <span className="text-[10px] text-white/50">
-                        無權限
-                      </span>
+                      <span className="text-[10px] text-white/50">無權限</span>
                     </div>
                   )}
                 </div>
