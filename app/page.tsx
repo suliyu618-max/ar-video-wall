@@ -23,27 +23,21 @@ export default function Home() {
   const snapContainerRef = useRef<HTMLDivElement>(null);
   const snapCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunks = useRef<Blob[]>([]);
 
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState("");
-  const [recording, setRecording] = useState(false);
-  const [videoURL, setVideoURL] = useState("");
-  const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
+  const [photoURL, setPhotoURL] = useState("");
+  const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
   const [uploading, setUploading] = useState(false);
   const [videos, setVideos] = useState<VideoItem[]>([]);
+
   const [userToken] = useState(() => {
-  if (typeof window === "undefined") return "";
-
-  const token =
-    localStorage.getItem("uploader_token") ||
-    crypto.randomUUID();
-
-  localStorage.setItem("uploader_token", token);
-
-  return token;
-});
+    if (typeof window === "undefined") return "";
+    const token =
+      localStorage.getItem("uploader_token") || crypto.randomUUID();
+    localStorage.setItem("uploader_token", token);
+    return token;
+  });
 
   const [commentOpen, setCommentOpen] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
@@ -68,35 +62,20 @@ export default function Home() {
       const lensId = process.env.NEXT_PUBLIC_SNAP_LENS_ID;
       const lensGroupId = process.env.NEXT_PUBLIC_SNAP_LENS_GROUP_ID;
 
-      console.log("SNAP_API_TOKEN =", apiToken);
-      console.log("SNAP_LENS_ID =", lensId);
-      console.log("SNAP_LENS_GROUP_ID =", lensGroupId);
-
       if (!apiToken || !lensId || !lensGroupId) {
-        setCameraError(
-          `API TOKEN: ${apiToken ? "✅ OK" : "❌ MISSING"}
-
-LENS ID: ${lensId ? "✅ OK" : "❌ MISSING"}
-
-GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
-        );
+        setCameraError("缺少 Snap Camera Kit 環境變數");
         return;
       }
 
       if (!snapContainerRef.current) return;
 
-      const cameraKitModule = await import("@snap/camera-kit");
-
       const {
         bootstrapCameraKit,
         createMediaStreamSource,
         Transform2D,
-      } = cameraKitModule;
+      } = await import("@snap/camera-kit");
 
-      const cameraKit = await bootstrapCameraKit({
-        apiToken,
-      });
-
+      const cameraKit = await bootstrapCameraKit({ apiToken });
       const session = await cameraKit.createSession();
 
       snapContainerRef.current.innerHTML = "";
@@ -113,7 +92,7 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
           width: { ideal: 720 },
           height: { ideal: 1280 },
         },
-        audio: true,
+        audio: false,
       });
 
       cameraStreamRef.current = stream;
@@ -137,12 +116,9 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
       setCameraError("");
     } catch (error: unknown) {
       console.error("SNAP ERROR:", error);
-
       setCameraError(
-  error instanceof Error
-    ? error.message
-    : "Snap Lens 載入失敗"
-);
+        error instanceof Error ? error.message : "Snap Lens 載入失敗"
+      );
     }
   }
 
@@ -152,12 +128,7 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error(error);
-      return;
-    }
-
-    setVideos(data || []);
+    if (!error) setVideos(data || []);
   }
 
   async function fetchComments(videoId: number) {
@@ -167,91 +138,51 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
       .eq("video_id", videoId)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error(error);
+    if (!error) setComments(data || []);
+  }
+
+  function takePhoto() {
+    const canvas = snapCanvasRef.current;
+
+    if (!canvas) {
+      alert("相機尚未準備完成");
       return;
     }
 
-    setComments(data || []);
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          alert("拍照失敗");
+          return;
+        }
+
+        const url = URL.createObjectURL(blob);
+        setPhotoBlob(blob);
+        setPhotoURL(url);
+      },
+      "image/png",
+      1
+    );
   }
 
-  function openComments(item: VideoItem) {
-    setSelectedVideo(item);
-    setCommentOpen(true);
-    setCommentText("");
-    fetchComments(item.id);
-  }
-
-  function closeComments() {
-    setCommentOpen(false);
-    setSelectedVideo(null);
-    setComments([]);
-    setCommentText("");
-  }
-
-  function startRecording() {
-    const snapCanvas = snapCanvasRef.current;
-    const cameraStream = cameraStreamRef.current;
-
-    if (!snapCanvas || !cameraStream) {
-      alert("Lens 尚未載入完成");
-      return;
-    }
-
-    chunks.current = [];
-
-    const outputStream = snapCanvas.captureStream(30);
-
-    cameraStream.getAudioTracks().forEach((track) => {
-      outputStream.addTrack(track);
-    });
-
-    const recorder = new MediaRecorder(outputStream, {
-      mimeType: "video/webm",
-    });
-
-    recorderRef.current = recorder;
-
-    recorder.ondataavailable = (event) => {
-      if (event.data.size > 0) chunks.current.push(event.data);
-    };
-
-    recorder.onstop = () => {
-      const blob = new Blob(chunks.current, { type: "video/webm" });
-      const url = URL.createObjectURL(blob);
-
-      setVideoBlob(blob);
-      setVideoURL(url);
-    };
-
-    recorder.start();
-    setRecording(true);
-  }
-
-  function stopRecording() {
-    recorderRef.current?.stop();
-    setRecording(false);
-  }
-
-  async function uploadVideo() {
-    if (!videoBlob) {
-      alert("請先錄影");
+  async function uploadPhoto() {
+    if (!photoBlob) {
+      alert("請先拍照");
       return;
     }
 
     setUploading(true);
 
-    const fileName = `video-${Date.now()}.webm`;
+    const fileName = `photo-${Date.now()}.png`;
 
     const { error: uploadError } = await supabase.storage
       .from("susu")
-      .upload(fileName, videoBlob, {
-        contentType: "video/webm",
+      .upload(fileName, photoBlob, {
+        contentType: "image/png",
       });
 
     if (uploadError) {
-      console.error(uploadError);
-      alert("影片上傳失敗");
+      alert("照片上傳失敗");
       setUploading(false);
       return;
     }
@@ -267,18 +198,16 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
       },
     ]);
 
+    setUploading(false);
+
     if (insertError) {
-      console.error(insertError);
       alert("資料庫寫入失敗");
-      setUploading(false);
       return;
     }
 
-    alert("影片上傳成功");
-
-    setUploading(false);
-    setVideoURL("");
-    setVideoBlob(null);
+    alert("照片上傳成功");
+    setPhotoURL("");
+    setPhotoBlob(null);
     fetchVideos();
   }
 
@@ -303,7 +232,6 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
     ]);
 
     if (error) {
-      console.error(error);
       alert("點讚失敗");
       return;
     }
@@ -314,6 +242,20 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
       .eq("id", item.id);
 
     fetchVideos();
+  }
+
+  function openComments(item: VideoItem) {
+    setSelectedVideo(item);
+    setCommentOpen(true);
+    setCommentText("");
+    fetchComments(item.id);
+  }
+
+  function closeComments() {
+    setCommentOpen(false);
+    setSelectedVideo(null);
+    setComments([]);
+    setCommentText("");
   }
 
   async function submitComment() {
@@ -336,7 +278,6 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
     ]);
 
     if (error) {
-      console.error(error);
       alert("留言失敗");
       setSendingComment(false);
       return;
@@ -354,11 +295,6 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
 
     await fetchComments(selectedVideo.id);
     await fetchVideos();
-
-    setSelectedVideo({
-      ...selectedVideo,
-      comment_count: (selectedVideo.comment_count || 0) + 1,
-    });
   }
 
   async function deleteVideo(item: VideoItem) {
@@ -367,7 +303,7 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
       return;
     }
 
-    if (!confirm("確定刪除影片？")) return;
+    if (!confirm("確定刪除照片？")) return;
 
     const fileName = item.video_url.split("/").pop();
 
@@ -375,17 +311,7 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
       await supabase.storage.from("susu").remove([fileName]);
     }
 
-    const { error } = await supabase
-      .from("videos")
-      .delete()
-      .eq("id", item.id);
-
-    if (error) {
-      console.error(error);
-      alert("刪除失敗");
-      return;
-    }
-
+    await supabase.from("videos").delete().eq("id", item.id);
     fetchVideos();
   }
 
@@ -393,11 +319,23 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
     <main className="bg-black min-h-screen text-white">
       <section className="min-h-screen flex flex-col items-center justify-center gap-5 px-4 py-8 border-b border-white/10">
         <h1 className="text-3xl font-black tracking-wide text-center">
-          AR Lens Video Recorder
+          AR Lens Photo Booth
         </h1>
 
-        <div className="w-full max-w-[420px] aspect-[9/16] rounded-[28px] border border-white/20 bg-black shadow-2xl overflow-hidden">
+        <div className="relative w-full max-w-[420px] aspect-[9/16] rounded-[28px] border border-white/20 bg-black shadow-2xl overflow-hidden">
           <div ref={snapContainerRef} className="w-full h-full" />
+
+          {cameraReady && (
+            <div className="absolute bottom-6 left-0 right-0 flex justify-center">
+              <button
+                onClick={takePhoto}
+                className="w-20 h-20 rounded-full border-[6px] border-white bg-white/20 flex items-center justify-center shadow-2xl active:scale-95 transition"
+                aria-label="拍照"
+              >
+                <span className="w-14 h-14 rounded-full bg-white block" />
+              </button>
+            </div>
+          )}
         </div>
 
         {!cameraReady && (
@@ -406,37 +344,33 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
           </p>
         )}
 
-        {cameraReady && !recording ? (
-          <button
-            onClick={startRecording}
-            className="bg-white text-black px-7 py-3 rounded-2xl font-bold text-base"
-          >
-            開始錄影
-          </button>
-        ) : cameraReady && recording ? (
-          <button
-            onClick={stopRecording}
-            className="bg-red-500 text-white px-7 py-3 rounded-2xl font-bold text-base"
-          >
-            停止錄影
-          </button>
-        ) : null}
-
-        {videoURL && (
+        {photoURL && (
           <div className="w-full max-w-[420px] flex flex-col gap-3">
-            <video
-              src={videoURL}
-              controls
-              className="rounded-3xl border border-white/20"
+            <img
+              src={photoURL}
+              alt="拍攝預覽"
+              className="w-full rounded-3xl border border-white/20"
             />
 
-            <button
-              onClick={uploadVideo}
-              disabled={uploading}
-              className="bg-green-500 text-white px-6 py-3 rounded-2xl font-bold"
-            >
-              {uploading ? "上傳中..." : "上傳影片"}
-            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => {
+                  setPhotoURL("");
+                  setPhotoBlob(null);
+                }}
+                className="bg-white/10 text-white px-6 py-3 rounded-2xl font-bold border border-white/20"
+              >
+                重拍
+              </button>
+
+              <button
+                onClick={uploadPhoto}
+                disabled={uploading}
+                className="bg-green-500 text-white px-6 py-3 rounded-2xl font-bold"
+              >
+                {uploading ? "上傳中..." : "上傳照片"}
+              </button>
+            </div>
           </div>
         )}
       </section>
@@ -452,11 +386,9 @@ GROUP ID: ${lensGroupId ? "✅ OK" : "❌ MISSING"}`
               key={item.id}
               className="w-full max-w-[430px] flex flex-col gap-3"
             >
-              <video
+              <img
                 src={item.video_url}
-                controls
-                playsInline
-                loop
+                alt="參賽作品"
                 className="w-full aspect-[9/16] object-cover bg-black rounded-[28px] border border-white/15 shadow-2xl"
               />
 
