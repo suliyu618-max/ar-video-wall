@@ -322,7 +322,20 @@ export default function Home() {
           AR Lens Photo Booth
         </h1>
 
-        <div className="relative w-full max-w-[420px] aspect-[9/16] rounded-[28px] border border-white/20 bg-black shadow-2xl overflow-hidden">
+        <div
+  className="
+    relative
+    w-full
+    max-w-[320px]
+    aspect-[9/16]
+    rounded-[28px]
+    border
+    border-white/20
+    bg-black
+    shadow-2xl
+    overflow-hidden
+  "
+>
           <div ref={snapContainerRef} className="w-full h-full" />
 
           {cameraReady && (
@@ -345,7 +358,7 @@ export default function Home() {
         )}
 
         {photoURL && (
-          <div className="w-full max-w-[420px] flex flex-col gap-3">
+          <div className="w-full max-w-[320px] flex flex-col gap-3">
             <img
               src={photoURL}
               alt="拍攝預覽"
@@ -384,8 +397,8 @@ export default function Home() {
           videos.map((item, index) => (
             <article
               key={item.id}
-              className="w-full max-w-[430px] flex flex-col gap-3"
-            >
+              className="w-full max-w-[320px] flex flex-col gap-3"
+>
               <img
                 src={item.video_url}
                 alt="參賽作品"
